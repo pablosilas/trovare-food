@@ -3,8 +3,13 @@ import api from "../services/api.js";
 
 const formaConfig = {
   pix: { label: "PIX", color: "#00F5A0" },
-  cartao: { label: "Cartão", color: "#B8A8FF" },
   dinheiro: { label: "Dinheiro", color: "#F59E0B" },
+  credito: { label: "Crédito", color: "#B8A8FF" },
+  debito: { label: "Débito", color: "#7C6AF5" },
+  vr: { label: "VR", color: "#FF6B35" },
+  va: { label: "VA", color: "#00D9F5" },
+  ticket: { label: "Ticket", color: "#F472B6" },
+  transferencia: { label: "Transferência", color: "#4ade80" },
 };
 
 export default function Caixa() {
@@ -68,34 +73,40 @@ export default function Caixa() {
       </div>
 
       {/* Formas de pagamento */}
+      {/* Formas de pagamento */}
       <div className="t-card rounded-xl p-5">
         <div className="t-faint text-[11px] uppercase tracking-wider mb-4"
           style={{ fontFamily: "'Space Mono', monospace" }}>
           Receita por forma de pagamento — hoje
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { key: "totalPix", label: "PIX", color: "#00F5A0", value: resumo?.totalPix || 0 },
-            { key: "totalCartao", label: "Cartão", color: "#B8A8FF", value: resumo?.totalCartao || 0 },
-            { key: "totalDinheiro", label: "Dinheiro", color: "#F59E0B", value: resumo?.totalDinheiro || 0 },
-          ].map(f => (
-            <div key={f.key} className="t-inner rounded-lg p-4">
-              <div className="text-[11px] mb-2" style={{ color: f.color, fontFamily: "'Space Mono', monospace" }}>
-                {f.label}
-              </div>
-              <div className="text-xl font-bold t-text">R$ {Number(f.value).toFixed(2)}</div>
-              <div className="h-1 rounded-full mt-3" style={{ background: "var(--bg-card)" }}>
-                <div className="h-full rounded-full transition-all" style={{
-                  width: resumo?.totalHoje > 0 ? `${(f.value / resumo.totalHoje) * 100}%` : "0%",
-                  background: f.color,
-                }} />
-              </div>
-              <div className="t-faint text-[10px] mt-1">
-                {resumo?.totalHoje > 0 ? `${((f.value / resumo.totalHoje) * 100).toFixed(0)}%` : "0%"}
-              </div>
-            </div>
-          ))}
-        </div>
+        {resumo?.porForma && Object.keys(resumo.porForma).length > 0 ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {Object.entries(resumo.porForma).map(([forma, total]) => {
+              const cfg = formaConfig[forma] || { label: forma, color: "#888" };
+              return (
+                <div key={forma} className="t-inner rounded-lg p-3">
+                  <div className="text-[11px] mb-2" style={{ color: cfg.color, fontFamily: "'Space Mono', monospace" }}>
+                    {cfg.label}
+                  </div>
+                  <div className="t-text text-lg font-bold">
+                    R$ {Number(total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="h-1 rounded-full mt-2" style={{ background: "var(--bg-card)" }}>
+                    <div className="h-full rounded-full" style={{
+                      width: resumo.totalHoje > 0 ? `${(total / resumo.totalHoje) * 100}%` : "0%",
+                      background: cfg.color,
+                    }} />
+                  </div>
+                  <div className="t-faint text-[10px] mt-1">
+                    {resumo.totalHoje > 0 ? `${((total / resumo.totalHoje) * 100).toFixed(0)}%` : "0%"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="t-muted text-sm text-center py-4">Nenhum pagamento hoje</div>
+        )}
       </div>
 
       {/* Histórico de pagamentos */}

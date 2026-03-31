@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import api from "../services/api.js";
 
 const emptyCategoria = { nome: "", ordem: 0 };
-const emptyItem = { categoriaId: "", nome: "", descricao: "", preco: "" };
+const emptyItem = {
+  categoriaId: "", nome: "", descricao: "", preco: "", precoDisplay: ""
+};
 
 export default function Cardapio() {
   const [categorias, setCategorias] = useState([]);
@@ -80,8 +82,29 @@ export default function Cardapio() {
       nome: item.nome,
       descricao: item.descricao,
       preco: item.preco,
+      precoDisplay: Number(item.preco).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
     });
     setShowModal("item");
+  }
+
+  function formatPrice(value) {
+    // Remove tudo que não é número
+    const nums = value.replace(/\D/g, "");
+    if (!nums) return "";
+    // Converte para centavos e formata
+    const cents = parseInt(nums, 10);
+    return (cents / 100).toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  function parsePrice(formatted) {
+    // Converte "20,50" para 20.5
+    return parseFloat(formatted.replace(/\./g, "").replace(",", ".")) || 0;
   }
 
   async function handleSubmitItem() {
@@ -240,7 +263,7 @@ export default function Cardapio() {
                             <div className="t-muted text-xs mb-1">{item.descricao}</div>
                           )}
                           <div className="text-sm font-semibold" style={{ color: "var(--accent)" }}>
-                            R$ {Number(item.preco).toFixed(2)}
+                            R$ {Number(item.preco).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -371,10 +394,20 @@ export default function Cardapio() {
                   style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
                   Preço (R$)
                 </label>
-                <input type="number" placeholder="0.00" value={formItem.preco}
-                  onChange={e => setFormItem(f => ({ ...f, preco: e.target.value }))}
-                  className="t-input w-full text-sm px-3 py-2 rounded-lg"
-                />
+                <div className="flex items-center gap-2 t-input rounded-lg px-3 py-2">
+                  <span className="t-muted text-sm shrink-0">R$</span>
+                  <input
+                    type="text"
+                    placeholder="0,00"
+                    value={formItem.precoDisplay}
+                    onChange={e => {
+                      const display = formatPrice(e.target.value);
+                      const value = parsePrice(display);
+                      setFormItem(f => ({ ...f, precoDisplay: display, preco: value }));
+                    }}
+                    style={{ background: "transparent", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "14px", width: "100%" }}
+                  />
+                </div>
               </div>
               <div className="flex gap-3 mt-2">
                 <button onClick={() => setShowModal(null)}
