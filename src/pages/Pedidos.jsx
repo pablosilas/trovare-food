@@ -187,6 +187,7 @@ export default function Pedidos() {
             { value: "aberto", label: "Aberto" },
             { value: "preparando", label: "Preparando" },
             { value: "pronto", label: "Pronto" },
+            { value: "aguardando_pagamento", label: "💰 Aguard. pagamento" },
             { value: "fechado", label: "Fechado" },
           ].map(f => (
             <button key={f.value} onClick={() => setFilter(f.value)}
@@ -289,11 +290,21 @@ export default function Pedidos() {
                         Pronto
                       </button>
                     )}
-                    {p.status !== "fechado" && (
+                    {/* Gerente pode fechar diretamente em qualquer status ativo */}
+                    {!["fechado", "aguardando_pagamento"].includes(p.status) && (
                       <button onClick={e => { e.stopPropagation(); setShowFechar(p); }}
                         className="text-[10px] px-2 py-1 rounded cursor-pointer"
                         style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
                         Fechar conta
+                      </button>
+                    )}
+
+                    {/* Garçom já fechou — só registrar pagamento */}
+                    {p.status === "aguardando_pagamento" && (
+                      <button onClick={e => { e.stopPropagation(); setShowFechar(p); }}
+                        className="text-[10px] px-2 py-1 rounded cursor-pointer font-semibold"
+                        style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                        💰 Registrar pagamento
                       </button>
                     )}
                   </div>

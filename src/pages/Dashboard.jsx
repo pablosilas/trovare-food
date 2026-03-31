@@ -78,6 +78,25 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {pedidos.filter(p => p.status === "aguardando_pagamento").length > 0 && (
+        <div className="t-card rounded-xl p-4 flex items-center gap-4"
+          style={{ borderColor: "var(--accent)", background: "var(--accent-bg)" }}>
+          <div style={{ fontSize: "24px" }}>💰</div>
+          <div>
+            <div className="text-sm font-bold" style={{ color: "var(--accent)" }}>
+              {pedidos.filter(p => p.status === "aguardando_pagamento").length} pedido(s) aguardando pagamento!
+            </div>
+            <div className="t-muted text-xs mt-1">
+              {[...new Set(
+                pedidos
+                  .filter(p => p.status === "aguardando_pagamento")
+                  .map(p => p.mesa ? `Mesa ${p.mesa.numero}` : "Balcão")
+              )].join(", ")}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
         {/* Pedidos ativos */}
