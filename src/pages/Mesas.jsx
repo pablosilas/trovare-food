@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { X } from "lucide-react";
 import api from "../services/api.js";
 
 const statusConfig = {
@@ -244,7 +245,7 @@ export default function Mesas() {
                 {selected ? "Editar Mesa" : "Nova Mesa"}
               </h2>
               <button onClick={() => setShowModal(false)}
-                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+                className="t-muted hover:opacity-75 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-3">
               <div>

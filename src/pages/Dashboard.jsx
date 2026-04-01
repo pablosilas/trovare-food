@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { TrendingUp, Clock, TableProperties, BookOpen, Banknote } from "lucide-react";
 import api from "../services/api.js";
 
 const statusConfig = {
@@ -62,16 +63,16 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Faturamento hoje", value: `R$ ${Number(resumo?.totalHoje || 0).toFixed(2)}`, color: "var(--accent)", icon: "◆" },
-          { label: "Pedidos ativos", value: pedidosAtivos.length, color: "#00F5A0", icon: "◷" },
-          { label: "Mesas ocupadas", value: `${mesasOcupadas}/${mesas.length}`, color: "#B8A8FF", icon: "◎" },
-          { label: "Itens no cardápio", value: totalItens, color: "#F59E0B", icon: "✦" },
+          { label: "Faturamento hoje", value: `R$ ${Number(resumo?.totalHoje || 0).toFixed(2)}`, color: "var(--accent)", Icon: TrendingUp },
+          { label: "Pedidos ativos", value: pedidosAtivos.length, color: "#00F5A0", Icon: Clock },
+          { label: "Mesas ocupadas", value: `${mesasOcupadas}/${mesas.length}`, color: "#B8A8FF", Icon: TableProperties },
+          { label: "Itens no cardápio", value: totalItens, color: "#F59E0B", Icon: BookOpen },
         ].map((s, i) => (
           <div key={i} className="t-card rounded-xl p-5">
             <div className="flex justify-between items-start mb-3">
               <span className="t-faint text-[11px] uppercase tracking-wider"
                 style={{ fontFamily: "'Space Mono', monospace" }}>{s.label}</span>
-              <span style={{ color: s.color }}>{s.icon}</span>
+              <s.Icon className="w-4 h-4" style={{ color: s.color }} />
             </div>
             <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
           </div>
@@ -81,7 +82,7 @@ export default function Dashboard() {
       {pedidos.filter(p => p.status === "aguardando_pagamento").length > 0 && (
         <div className="t-card rounded-xl p-4 flex items-center gap-4"
           style={{ borderColor: "var(--accent)", background: "var(--accent-bg)" }}>
-          <div style={{ fontSize: "24px" }}>💰</div>
+          <Banknote className="w-6 h-6 shrink-0" style={{ color: "var(--accent)" }} />
           <div>
             <div className="text-sm font-bold" style={{ color: "var(--accent)" }}>
               {pedidos.filter(p => p.status === "aguardando_pagamento").length} pedido(s) aguardando pagamento!

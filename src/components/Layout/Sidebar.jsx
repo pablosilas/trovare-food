@@ -12,6 +12,7 @@ import {
   Users,
   Wallet,
   Settings,
+  X,
 } from "lucide-react";
 
 const navItems = [
@@ -69,8 +70,8 @@ export default function Sidebar({ open, onClose }) {
           </div>
         </div>
         <button onClick={onClose}
-          className="lg:hidden cursor-pointer t-muted hover:opacity-75 text-xl">
-          ✕
+          className="lg:hidden cursor-pointer t-muted hover:opacity-75">
+          <X className="w-4 h-4" />
         </button>
       </div>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { X, KeyRound } from "lucide-react";
 import api from "../services/api.js";
 
 const emptyForm = { nome: "", phone: "", commissionPct: 10, status: "active", dataNascimento: "", dataNascimentoDisplay: "" };
@@ -290,7 +291,7 @@ export default function Garcons() {
                 {selected ? "Editar Garçom" : "Novo Garçom"}
               </h2>
               <button onClick={() => setShowModal(false)}
-                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+                className="t-muted hover:opacity-75 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-3">
               <div>
@@ -360,8 +361,9 @@ export default function Garcons() {
 
               {!selected && (
                 <div className="t-inner rounded-lg p-3">
-                  <div className="t-muted text-xs">
-                    🔐 O login será gerado automaticamente após o cadastro.
+                  <div className="t-muted text-xs flex items-center gap-1.5">
+                    <KeyRound className="w-3 h-3 shrink-0" />
+                    O login será gerado automaticamente após o cadastro.
                   </div>
                 </div>
               )}
@@ -388,11 +390,13 @@ export default function Garcons() {
             <div className="flex justify-between items-center mb-5">
               <h2 className="t-text text-sm font-semibold">Credenciais de acesso</h2>
               <button onClick={() => setShowLogin(null)}
-                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+                className="t-muted hover:opacity-75 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
 
             <div className="t-inner rounded-lg p-4 mb-4 text-center">
-              <div className="text-2xl mb-2">🔐</div>
+              <div className="flex justify-center mb-2">
+                <KeyRound className="w-6 h-6" style={{ color: "var(--accent)" }} />
+              </div>
               <div className="t-text text-sm font-semibold mb-1">
                 {showLogin.nome || "Garçom"}
               </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { BarChart2, Ban, AlertTriangle } from "lucide-react";
 import api from "../services/api.js";
 
 const periodos = [
@@ -55,17 +56,18 @@ export default function Relatorios() {
 
       <div className="flex gap-2 mb-2">
         {[
-          { value: "saidas", label: "📊 Saídas do cardápio" },
-          { value: "cancelamentos", label: "🚫 Cancelamentos" },
+          { value: "saidas", icon: BarChart2, label: "Saídas do cardápio" },
+          { value: "cancelamentos", icon: Ban, label: "Cancelamentos" },
         ].map(a => (
           <button key={a.value} onClick={() => setAba(a.value)}
-            className="flex-1 text-xs py-2 rounded-lg border transition-all cursor-pointer"
+            className="flex-1 flex items-center justify-center gap-1.5 text-xs py-2 rounded-lg border transition-all cursor-pointer"
             style={{
               background: aba === a.value ? "var(--accent-bg)" : "transparent",
               color: aba === a.value ? "var(--accent)" : "var(--text-muted)",
               borderColor: aba === a.value ? "var(--accent-border)" : "var(--border)",
               fontWeight: aba === a.value ? 600 : 400,
             }}>
+            <a.icon className="w-3.5 h-3.5" />
             {a.label}
           </button>
         ))}
@@ -139,7 +141,7 @@ export default function Relatorios() {
           style={{ borderColor: "#FF3D6E40" }}>
           <div className="px-5 py-4 flex items-center gap-3"
             style={{ borderBottom: "0.5px solid var(--border)", background: "#FF3D6E08" }}>
-            <span style={{ fontSize: "20px" }}>⚠️</span>
+            <AlertTriangle className="w-5 h-5 shrink-0" style={{ color: "#FF3D6E" }} />
             <div>
               <div className="text-sm font-semibold" style={{ color: "#FF3D6E" }}>
                 {alertas.length} alerta{alertas.length > 1 ? "s" : ""} de estoque

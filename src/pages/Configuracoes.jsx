@@ -1,4 +1,18 @@
 import { useState, useEffect } from "react";
+import {
+  Check,
+  Users,
+  ChefHat,
+  Ban,
+  PersonStanding,
+  Pin,
+  Lightbulb,
+  ClipboardList,
+  RotateCcw,
+  Lock,
+  CheckCircle2,
+  Circle,
+} from "lucide-react";
 import api from "../services/api.js";
 
 export default function Configuracoes() {
@@ -64,7 +78,7 @@ export default function Configuracoes() {
         <h1 className="t-text text-lg font-semibold">Configurações</h1>
         <p className="t-muted text-xs mt-0.5">
           {savedMode
-            ? <span style={{ color: "#00F5A0" }}>✓ Configurações salvas</span>
+            ? <span style={{ color: "#00F5A0" }} className="flex items-center gap-1"><Check className="w-3 h-3" /> Configurações salvas</span>
             : "Gerencie os acessos e preferências do restaurante"
           }
         </p>
@@ -75,9 +89,9 @@ export default function Configuracoes() {
         <div className="px-5 py-4" style={{ borderBottom: "0.5px solid var(--border)" }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ background: "#B8A8FF20", border: "0.5px solid #B8A8FF30" }}>
-                👥
+                <Users className="w-5 h-5" style={{ color: "#B8A8FF" }} />
               </div>
               <div>
                 <div className="t-text text-sm font-semibold">Modo dos Garçons</div>
@@ -85,8 +99,8 @@ export default function Configuracoes() {
               </div>
             </div>
             {savedMode && (
-              <span className="text-xs" style={{ color: "#00F5A0", fontFamily: "'Space Mono', monospace" }}>
-                ✓ Salvo
+              <span className="flex items-center gap-1 text-xs" style={{ color: "#00F5A0", fontFamily: "'Space Mono', monospace" }}>
+                <Check className="w-3 h-3" /> Salvo
               </span>
             )}
           </div>
@@ -96,12 +110,14 @@ export default function Configuracoes() {
           {[
             {
               value: "movel",
-              label: "🚶 Garçom Móvel",
+              icon: PersonStanding,
+              label: "Garçom Móvel",
               desc: "Todos os garçons veem e podem atender qualquer mesa. Ideal para equipes pequenas ou restaurantes movimentados.",
             },
             {
               value: "fixo",
-              label: "📌 Garçom Fixo",
+              icon: Pin,
+              label: "Garçom Fixo",
               desc: "Cada garçom vê apenas os pedidos que ele mesmo criou. Ideal para controle individual de mesas e comissões.",
             },
           ].map(m => (
@@ -125,8 +141,9 @@ export default function Configuracoes() {
                   )}
                 </div>
                 <div>
-                  <div className="text-sm font-semibold"
+                  <div className="flex items-center gap-1.5 text-sm font-semibold"
                     style={{ color: config?.garcomModo === m.value ? "var(--accent)" : "var(--text-primary)" }}>
+                    <m.icon className="w-4 h-4" />
                     {m.label}
                   </div>
                   <div className="t-muted text-xs mt-0.5">{m.desc}</div>
@@ -141,9 +158,9 @@ export default function Configuracoes() {
       <div className="t-card rounded-xl overflow-hidden">
         <div className="px-5 py-4" style={{ borderBottom: "0.5px solid var(--border)" }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
               style={{ background: "#F59E0B20", border: "0.5px solid #F59E0B30" }}>
-              🍳
+              <ChefHat className="w-5 h-5" style={{ color: "#F59E0B" }} />
             </div>
             <div>
               <div className="t-text text-sm font-semibold">Acesso da Cozinha</div>
@@ -176,8 +193,9 @@ export default function Configuracoes() {
                   style={{ fontFamily: "'Space Mono', monospace", color: "var(--accent)" }}>
                   {novaSenha}
                 </div>
-                <div className="t-muted text-xs mt-1">
-                  💡 Anote! Essa senha não será exibida novamente.
+                <div className="t-muted text-xs mt-1 flex items-center gap-1">
+                  <Lightbulb className="w-3 h-3 shrink-0" />
+                  Anote! Essa senha não será exibida novamente.
                 </div>
               </div>
             ) : (
@@ -187,7 +205,9 @@ export default function Configuracoes() {
 
           <div className="t-inner rounded-lg p-4"
             style={{ background: "#F59E0B08", borderColor: "#F59E0B20" }}>
-            <div className="text-xs" style={{ color: "#F59E0B" }}>📋 Como usar</div>
+            <div className="flex items-center gap-1.5 text-xs" style={{ color: "#F59E0B" }}>
+              <ClipboardList className="w-3.5 h-3.5" /> Como usar
+            </div>
             <div className="t-muted text-xs mt-2 flex flex-col gap-1">
               <div>1. Abra o <strong className="t-text">Trovare Kitchen</strong> no dispositivo da cozinha</div>
               <div>2. Digite o email e a senha acima</div>
@@ -196,23 +216,25 @@ export default function Configuracoes() {
           </div>
 
           <button onClick={handleReset} disabled={resetting}
-            className="w-full text-sm py-3 rounded-xl cursor-pointer transition-colors"
+            className="w-full flex items-center justify-center gap-2 text-sm py-3 rounded-xl cursor-pointer transition-colors"
             style={{
               background: "#FF3D6E15", color: "#FF3D6E",
               border: "0.5px solid #FF3D6E30",
               opacity: resetting ? 0.7 : 1,
             }}>
-            {resetting ? "Gerando nova senha..." : "🔄 Resetar senha da cozinha"}
+            <RotateCcw className="w-4 h-4" />
+            {resetting ? "Gerando nova senha..." : "Resetar senha da cozinha"}
           </button>
         </div>
       </div>
+
       {/* Cancelamentos */}
       <div className="t-card rounded-xl overflow-hidden">
         <div className="px-5 py-4" style={{ borderBottom: "0.5px solid var(--border)" }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
               style={{ background: "#FF3D6E20", border: "0.5px solid #FF3D6E30" }}>
-              🚫
+              <Ban className="w-5 h-5" style={{ color: "#FF3D6E" }} />
             </div>
             <div>
               <div className="t-text text-sm font-semibold">Cancelamentos</div>
@@ -231,8 +253,8 @@ export default function Configuracoes() {
             </label>
             <div className="flex flex-col gap-2">
               {[
-                { value: "gerente", label: "🔒 Só o gerente", desc: "Garçom não pode cancelar pedidos" },
-                { value: "garcom", label: "✅ Gerente e garçom", desc: "Garçom pode cancelar dentro do limite definido" },
+                { value: "gerente", icon: Lock, label: "Só o gerente", desc: "Garçom não pode cancelar pedidos" },
+                { value: "garcom", icon: CheckCircle2, label: "Gerente e garçom", desc: "Garçom pode cancelar dentro do limite definido" },
               ].map(opt => (
                 <button key={opt.value}
                   onClick={() => handleConfigChange({ cancelamentoPermitido: opt.value })}
@@ -249,8 +271,9 @@ export default function Configuracoes() {
                       )}
                     </div>
                     <div>
-                      <div className="text-sm font-semibold"
+                      <div className="flex items-center gap-1.5 text-sm font-semibold"
                         style={{ color: config?.cancelamentoPermitido === opt.value ? "var(--accent)" : "var(--text-primary)" }}>
+                        <opt.icon className="w-4 h-4" />
                         {opt.label}
                       </div>
                       <div className="t-muted text-xs mt-0.5">{opt.desc}</div>
@@ -270,9 +293,9 @@ export default function Configuracoes() {
               </label>
               <div className="flex flex-col gap-2">
                 {[
-                  { value: "aberto", label: "🟠 Apenas aberto", desc: "Só antes da cozinha iniciar" },
-                  { value: "preparando", label: "🟡 Aberto e preparando", desc: "Enquanto ainda está sendo preparado" },
-                  { value: "qualquer", label: "🟢 Qualquer status ativo", desc: "Até aguardando pagamento" },
+                  { value: "aberto", color: "#F97316", label: "Apenas aberto", desc: "Só antes da cozinha iniciar" },
+                  { value: "preparando", color: "#EAB308", label: "Aberto e preparando", desc: "Enquanto ainda está sendo preparado" },
+                  { value: "qualquer", color: "#22C55E", label: "Qualquer status ativo", desc: "Até aguardando pagamento" },
                 ].map(opt => (
                   <button key={opt.value}
                     onClick={() => handleConfigChange({ cancelamentoAteStatus: opt.value })}
@@ -289,8 +312,9 @@ export default function Configuracoes() {
                         )}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold"
+                        <div className="flex items-center gap-1.5 text-sm font-semibold"
                           style={{ color: config?.cancelamentoAteStatus === opt.value ? "var(--accent)" : "var(--text-primary)" }}>
+                          <Circle className="w-3 h-3" style={{ color: opt.color, fill: opt.color }} />
                           {opt.label}
                         </div>
                         <div className="t-muted text-xs mt-0.5">{opt.desc}</div>

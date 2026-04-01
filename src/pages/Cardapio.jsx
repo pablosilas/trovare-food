@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { X, OctagonX, AlertTriangle } from "lucide-react";
 import api from "../services/api.js";
 import socket from "../services/socket.js";
 
@@ -221,11 +222,14 @@ export default function Cardapio() {
                 border: `0.5px solid ${a.tipo === "zerado" ? "#FF3D6E30" : "#F59E0B30"}`,
                 color: a.tipo === "zerado" ? "#FF3D6E" : "#F59E0B",
               }}>
-              <span>{a.tipo === "zerado" ? "⛔" : "⚠️"} {a.msg}</span>
+              <span className="flex items-center gap-1.5">
+                {a.tipo === "zerado" ? <OctagonX className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+                {a.msg}
+              </span>
               <button onClick={() => setAlertas(prev => prev.filter((_, j) => j !== i))}
                 className="cursor-pointer hover:opacity-75 ml-4 shrink-0"
-                style={{ background: "none", border: "none", color: "inherit", fontSize: "16px" }}>
-                ✕
+                style={{ background: "none", border: "none", color: "inherit" }}>
+                <X className="w-4 h-4" />
               </button>
             </div>
           ))}
@@ -371,7 +375,7 @@ export default function Cardapio() {
                 {selectedCat ? "Editar Categoria" : "Nova Categoria"}
               </h2>
               <button onClick={() => setShowModal(null)}
-                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+                className="t-muted hover:opacity-75 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-3">
               <div>
@@ -418,7 +422,7 @@ export default function Cardapio() {
                 {selectedItem ? "Editar Item" : "Novo Item"}
               </h2>
               <button onClick={() => setShowModal(null)}
-                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+                className="t-muted hover:opacity-75 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-3">
               <div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { X, Check, Ban, Bike, Armchair, Banknote, Rocket } from "lucide-react";
 import api from "../services/api.js";
 import EnderecoForm from "../components/EnderecoForm.jsx";
 
@@ -281,17 +282,18 @@ export default function Pedidos() {
             { value: "aberto", label: "Aberto" },
             { value: "preparando", label: "Preparando" },
             { value: "pronto", label: "Pronto" },
-            { value: "aguardando_pagamento", label: "💰 Aguard. pagamento" },
+            { value: "aguardando_pagamento", label: "Aguard. pagamento", icon: Banknote },
             { value: "fechado", label: "Fechado" },
             { value: "cancelado", label: "Cancelados" },
           ].map(f => (
             <button key={f.value} onClick={() => setFilter(f.value)}
-              className="text-xs px-3 py-1.5 rounded-lg border transition-all cursor-pointer"
+              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border transition-all cursor-pointer"
               style={{
                 background: filter === f.value ? "var(--accent-bg)" : "transparent",
                 color: filter === f.value ? "var(--accent)" : "var(--text-muted)",
                 borderColor: filter === f.value ? "var(--accent-border)" : "var(--border)",
               }}>
+              {f.icon && <f.icon className="w-3 h-3" />}
               {f.label}
             </button>
           ))}
@@ -341,9 +343,9 @@ export default function Pedidos() {
                           {cfg.label}
                         </span>
                         {p.origem === "delivery" && (
-                          <span className="text-[10px] px-2 py-0.5 rounded"
+                          <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded"
                             style={{ background: "#B8A8FF15", color: "#B8A8FF" }}>
-                            🛵 Delivery
+                            <Bike className="w-3 h-3" /> Delivery
                           </span>
                         )}
                         {p.origem === "ifood" && (
@@ -390,7 +392,7 @@ export default function Pedidos() {
                           color: "#080810",
                           border: "none",
                         }}>
-                        ✓ Pronto
+                        <span className="flex items-center gap-1"><Check className="w-3 h-3" /> Pronto</span>
                       </button>
                     )}
                     {!["fechado", "aguardando_pagamento", "cancelado"].includes(p.status) && (
@@ -419,7 +421,7 @@ export default function Pedidos() {
                           color: "#fff",
                           border: "none",
                         }}>
-                        💰 Registrar pagamento
+                        <span className="flex items-center gap-1"><Banknote className="w-3 h-3" /> Registrar pagamento</span>
                       </button>
                     )}
                   </div>
@@ -436,9 +438,10 @@ export default function Pedidos() {
               style={{ borderBottom: "0.5px solid var(--border)" }}>
               <div>
                 <span className="t-text text-sm font-semibold">Pedido #{selected.id}</span>
-                <span className="t-muted text-xs ml-2">
+                <span className="t-muted text-xs ml-2 flex items-center gap-1">
+                  {selected.origem === "delivery" && <Bike className="w-3 h-3" />}
                   {selected.origem === "delivery"
-                    ? `🛵 ${selected.nomeCliente || "Delivery"}`
+                    ? selected.nomeCliente || "Delivery"
                     : selected.mesa ? `Mesa ${selected.mesa.numero}` : "Balcão"}
                 </span>
               </div>
@@ -450,7 +453,7 @@ export default function Pedidos() {
                   </button>
                 )}
                 <button onClick={() => setSelected(null)}
-                  className="t-muted text-lg cursor-pointer hover:opacity-75">✕</button>
+                  className="t-muted cursor-pointer hover:opacity-75"><X className="w-4 h-4" /></button>
               </div>
             </div>
 
@@ -502,8 +505,8 @@ export default function Pedidos() {
                     </div>
                     {selected.status !== "fechado" && (
                       <button onClick={() => handleRemoveItem(ip.id)}
-                        className="text-[10px] cursor-pointer hover:opacity-75"
-                        style={{ color: "#FF3D6E" }}>✕</button>
+                        className="cursor-pointer hover:opacity-75"
+                        style={{ color: "#FF3D6E" }}><X className="w-3 h-3" /></button>
                     )}
                   </div>
                 ))
@@ -550,11 +553,13 @@ export default function Pedidos() {
             <div className="flex justify-between items-center mb-5">
               <h2 className="t-text text-sm font-semibold">Cancelar Pedido</h2>
               <button onClick={() => setShowCancelar(null)}
-                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+                className="t-muted hover:opacity-75 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-4">
               <div className="t-inner rounded-lg p-4 text-center">
-                <div className="text-2xl mb-2">🚫</div>
+                <div className="flex justify-center mb-2">
+                  <Ban className="w-6 h-6" style={{ color: "#FF3D6E" }} />
+                </div>
                 <div className="t-text text-sm font-semibold">Pedido #{showCancelar.id}</div>
                 <div className="t-muted text-xs mt-1">
                   {showCancelar.mesa ? `Mesa ${showCancelar.mesa.numero}` : showCancelar.nomeCliente || "Balcão"}
@@ -614,7 +619,7 @@ export default function Pedidos() {
                   </div>
                 )}
                 <button onClick={() => { setShowNew(false); setStep(1); setCarrinho([]); }}
-                  className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+                  className="t-muted hover:opacity-75 cursor-pointer"><X className="w-4 h-4" /></button>
               </div>
             </div>
 
@@ -651,8 +656,8 @@ export default function Pedidos() {
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { value: "local", label: "🪑 Local", desc: "Mesa ou balcão" },
-                        { value: "delivery", label: "🛵 Delivery", desc: "Entrega em domicílio" },
+                        { value: "local", icon: Armchair, label: "Local", desc: "Mesa ou balcão" },
+                        { value: "delivery", icon: Bike, label: "Delivery", desc: "Entrega em domicílio" },
                       ].map(t => (
                         <button key={t.value} onClick={() => setForm(f => ({ ...f, origem: t.value }))}
                           className="py-3 px-3 rounded-lg text-left border transition-all cursor-pointer"
@@ -660,8 +665,9 @@ export default function Pedidos() {
                             background: form.origem === t.value ? "var(--accent-bg)" : "var(--bg-tertiary)",
                             borderColor: form.origem === t.value ? "var(--accent-border)" : "var(--border)",
                           }}>
-                          <div className="text-sm font-semibold"
+                          <div className="flex items-center gap-1.5 text-sm font-semibold"
                             style={{ color: form.origem === t.value ? "var(--accent)" : "var(--text-primary)" }}>
+                            <t.icon className="w-4 h-4" />
                             {t.label}
                           </div>
                           <div className="t-muted text-xs mt-0.5">{t.desc}</div>
@@ -878,8 +884,9 @@ export default function Pedidos() {
                   <div className="t-inner rounded-lg p-4">
                     <div className="flex justify-between mb-2">
                       <span className="t-muted text-sm">Tipo</span>
-                      <span className="t-text text-sm font-semibold">
-                        {form.origem === "local" ? "🪑 Local" : "🛵 Delivery"}
+                      <span className="flex items-center gap-1.5 t-text text-sm font-semibold">
+                        {form.origem === "local" ? <Armchair className="w-4 h-4" /> : <Bike className="w-4 h-4" />}
+                        {form.origem === "local" ? "Local" : "Delivery"}
                       </span>
                     </div>
                     {form.origem === "local" && (
@@ -955,7 +962,7 @@ export default function Pedidos() {
                 }}>
                 {step === 1 ? "Próximo — Cardápio" :
                   step === 2 ? `Revisar · R$ ${totalCarrinho.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` :
-                    "Abrir pedido 🚀"}
+                    <span className="flex items-center gap-1.5 justify-center">Abrir pedido <Rocket className="w-4 h-4" /></span>}
               </button>
             </div>
           </div>
@@ -969,7 +976,7 @@ export default function Pedidos() {
             <div className="flex justify-between items-center mb-5">
               <h2 className="t-text text-sm font-semibold">Adicionar Item</h2>
               <button onClick={() => setShowAdd(false)}
-                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+                className="t-muted hover:opacity-75 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-3">
               <div>
@@ -1033,7 +1040,7 @@ export default function Pedidos() {
             <div className="flex justify-between items-center mb-5">
               <h2 className="t-text text-sm font-semibold">Fechar Conta</h2>
               <button onClick={() => setShowFechar(null)}
-                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+                className="t-muted hover:opacity-75 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-4">
 
