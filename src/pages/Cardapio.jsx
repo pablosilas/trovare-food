@@ -19,6 +19,52 @@ export default function Cardapio() {
   const [formItem, setFormItem] = useState(emptyItem);
   const [activeCat, setActiveCat] = useState(null);
   const [alertas, setAlertas] = useState([]); // ← novo
+  const [showImport, setShowImport] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [importError, setImportError] = useState("");
+
+  async function handleImport(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportResult(null);
+    setImportError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("arquivo", file);
+
+      const { data } = await api.post("/food/importacao/cardapio", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setImportResult(data);
+      await fetchCardapio();
+    } catch (e) {
+      setImportError(e.response?.data?.error || "Erro ao importar arquivo");
+    } finally {
+      setImporting(false);
+      e.target.value = ""; // reseta o input
+    }
+  }
+
+  async function handleDownloadModelo() {
+    try {
+      const response = await api.get("/food/importacao/modelo", {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "modelo-cardapio.xlsx";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Erro ao baixar modelo:", e);
+    }
+  }
 
   const fetchCardapio = useCallback(async () => {
     try {
@@ -197,6 +243,11 @@ export default function Cardapio() {
           <p className="t-muted text-xs mt-0.5">{categorias.length} categorias · {totalItens} itens</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => setShowImport(true)}
+            className="text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer t-inner t-muted t-hover border"
+            style={{ borderColor: "var(--border)" }}>
+            ↑ Importar
+          </button>
           <button onClick={openNewCategoria}
             className="text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer t-inner t-muted t-hover border"
             style={{ borderColor: "var(--border)" }}>
@@ -362,6 +413,109 @@ export default function Cardapio() {
                 )}
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal — Importar Cardápio */}
+      {showImport && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="t-modal rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="t-text text-sm font-semibold">Importar Cardápio</h2>
+              <button onClick={() => { setShowImport(false); setImportResult(null); setImportError(""); }}
+                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+
+              {/* Resultado */}
+              {importResult && (
+                <div className="t-inner rounded-lg p-4"
+                  style={{ borderColor: "#00F5A030", background: "#00F5A008" }}>
+                  <div className="text-sm font-semibold mb-2" style={{ color: "#00F5A0" }}>
+                    ✅ Importação concluída!
+                  </div>
+                  <div className="flex flex-col gap-1 text-xs t-muted">
+                    <div>✓ {importResult.criados} itens criados</div>
+                    <div>— {importResult.ignorados} ignorados (duplicados ou inválidos)</div>
+                    <div>Total: {importResult.total} linhas processadas</div>
+                  </div>
+                  {importResult.erros?.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs font-medium mb-1" style={{ color: "#F59E0B" }}>
+                        ⚠️ Avisos:
+                      </div>
+                      {importResult.erros.map((e, i) => (
+                        <div key={i} className="text-xs t-muted">{e}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {importError && (
+                <div className="t-inner rounded-lg p-3 text-sm"
+                  style={{ color: "#FF3D6E", background: "#FF3D6E15", borderColor: "#FF3D6E30" }}>
+                  ⛔ {importError}
+                </div>
+              )}
+
+              {/* Instruções */}
+              <div className="t-inner rounded-lg p-4">
+                <div className="t-text text-xs font-semibold mb-2">📋 Como importar</div>
+                <div className="t-muted text-xs flex flex-col gap-1">
+                  <div>1. Baixe a planilha modelo abaixo</div>
+                  <div>2. Preencha com os itens do seu cardápio</div>
+                  <div>3. Salve e faça o upload</div>
+                </div>
+                <div className="t-faint text-xs mt-2">
+                  Colunas: <span style={{ fontFamily: "'Space Mono', monospace" }}>categoria, nome, descricao, preco, disponivel</span>
+                </div>
+              </div>
+
+              {/* Download modelo */}
+              <button onClick={handleDownloadModelo}
+                className="w-full text-sm py-2.5 rounded-lg cursor-pointer transition-colors"
+                style={{
+                  background: "var(--accent-bg)",
+                  color: "var(--accent)",
+                  border: "0.5px solid var(--accent-border)",
+                }}>
+                ↓ Baixar planilha modelo (.xlsx)
+              </button>
+
+              {/* Upload */}
+              <div>
+                <label className="t-muted block mb-1"
+                  style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                  Selecione o arquivo
+                </label>
+                <label className="flex items-center justify-center gap-2 w-full py-3 rounded-lg cursor-pointer transition-colors"
+                  style={{
+                    background: "var(--bg-card)",
+                    border: "1.5px dashed var(--border)",
+                    color: "var(--text-muted)",
+                    fontSize: "13px",
+                    opacity: importing ? 0.7 : 1,
+                  }}>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={handleImport}
+                    disabled={importing}
+                    className="hidden"
+                  />
+                  {importing ? "⏳ Importando..." : "📂 Clique para selecionar (.xlsx ou .csv)"}
+                </label>
+              </div>
+
+              <button
+                onClick={() => { setShowImport(false); setImportResult(null); setImportError(""); }}
+                className="w-full t-inner t-muted text-sm py-2 rounded-lg cursor-pointer t-hover">
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}
