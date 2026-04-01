@@ -8,6 +8,7 @@ const statusConfig = {
   aberto: { label: "Aberto", bg: "#FF6B3515", color: "#FF6B35" },
   preparando: { label: "Preparando", bg: "#F59E0B15", color: "#F59E0B" },
   pronto: { label: "Pronto", bg: "#00F5A015", color: "#00F5A0" },
+  retirado: { label: "Pronto", bg: "#00F5A015", color: "#00F5A0" }, // ← adicione
   aguardando_pagamento: { label: "Aguard. pagamento", bg: "#7C6AF515", color: "#7C6AF5" },
   cancelado: { label: "Cancelado", bg: "#FF3D6E15", color: "#FF3D6E" },
   fechado: { label: "Fechado", bg: "#5A5A7A15", color: "#5A5A7A" },
@@ -239,7 +240,11 @@ export default function Pedidos() {
   const todosItens = cardapio.flatMap(c => c.itens.filter(i => i.disponivel));
 
   const filtered = pedidos
-    .filter(p => filter === "all" || p.status === filter)
+    .filter(p => {
+      if (filter === "all") return true;
+      if (filter === "pronto") return ["pronto", "retirado"].includes(p.status); // ← aqui
+      return p.status === filter;
+    })
     .filter(p => filterOrigem === "all" || p.origem === filterOrigem);
 
   if (loading) {
@@ -395,16 +400,14 @@ export default function Pedidos() {
                         <span className="flex items-center gap-1"><Check className="w-3 h-3" /> Pronto</span>
                       </button>
                     )}
-                    {!["fechado", "aguardando_pagamento", "cancelado"].includes(p.status) && (
-                      <button onClick={e => { e.stopPropagation(); setShowFechar(p); }}
-                        className="text-xs px-3 py-1.5 rounded-lg cursor-pointer font-medium transition-all"
-                        style={{
-                          background: "var(--accent)",
-                          color: "#fff",
-                          border: "none",
-                        }}>
-                        Fechar conta
-                      </button>
+                    {["pronto", "retirado"].includes(p.status) && ( // ← adicione retirado
+                      !["fechado", "aguardando_pagamento", "cancelado"].includes(p.status) && (
+                        <button onClick={e => { e.stopPropagation(); setShowFechar(p); }}
+                          className="text-xs px-3 py-1.5 rounded-lg cursor-pointer font-medium transition-all"
+                          style={{ background: "var(--accent)", color: "#fff", border: "none" }}>
+                          Fechar conta
+                        </button>
+                      )
                     )}
                     {!["fechado", "cancelado", "aguardando_pagamento"].includes(p.status) && (
                       <button onClick={e => { e.stopPropagation(); setShowCancelar(p); }}
