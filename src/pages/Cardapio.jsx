@@ -1,20 +1,23 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "../services/api.js";
+import socket from "../services/socket.js";
 
 const emptyCategoria = { nome: "", ordem: 0 };
 const emptyItem = {
-  categoriaId: "", nome: "", descricao: "", preco: "", precoDisplay: ""
+  categoriaId: "", nome: "", descricao: "", preco: "", precoDisplay: "",
+  temEstoque: false, estoque: "", estoqueMin: "",
 };
 
 export default function Cardapio() {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(null); // "categoria" | "item" | null
+  const [showModal, setShowModal] = useState(null);
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [formCat, setFormCat] = useState(emptyCategoria);
   const [formItem, setFormItem] = useState(emptyItem);
   const [activeCat, setActiveCat] = useState(null);
+  const [alertas, setAlertas] = useState([]); // ← novo
 
   const fetchCardapio = useCallback(async () => {
     try {
@@ -30,6 +33,31 @@ export default function Cardapio() {
   }, [activeCat]);
 
   useEffect(() => { fetchCardapio(); }, [fetchCardapio]);
+
+  // ← Socket.io — alertas de estoque
+  useEffect(() => {
+    socket.on("estoque:zerado", ({ nome }) => {
+      setAlertas(prev => {
+        const exists = prev.find(a => a.nome === nome && a.tipo === "zerado");
+        if (exists) return prev;
+        return [...prev, { nome, tipo: "zerado", msg: `"${nome}" zerou o estoque e foi marcado como indisponível` }];
+      });
+      fetchCardapio(); // atualiza a listagem
+    });
+
+    socket.on("estoque:baixo", ({ nome, estoque, minimo }) => {
+      setAlertas(prev => {
+        const exists = prev.find(a => a.nome === nome && a.tipo === "baixo");
+        if (exists) return prev;
+        return [...prev, { nome, tipo: "baixo", msg: `"${nome}" está com estoque baixo: ${estoque} un. (mín: ${minimo})` }];
+      });
+    });
+
+    return () => {
+      socket.off("estoque:zerado");
+      socket.off("estoque:baixo");
+    };
+  }, [fetchCardapio]);
 
   // Categoria
   function openNewCategoria() {
@@ -83,37 +111,40 @@ export default function Cardapio() {
       descricao: item.descricao,
       preco: item.preco,
       precoDisplay: Number(item.preco).toLocaleString("pt-BR", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+        minimumFractionDigits: 2, maximumFractionDigits: 2,
       }),
+      temEstoque: item.temEstoque || false,
+      estoque: item.estoque || "",
+      estoqueMin: item.estoqueMin || "",
     });
     setShowModal("item");
   }
 
   function formatPrice(value) {
-    // Remove tudo que não é número
     const nums = value.replace(/\D/g, "");
     if (!nums) return "";
-    // Converte para centavos e formata
-    const cents = parseInt(nums, 10);
-    return (cents / 100).toLocaleString("pt-BR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+    return (parseInt(nums, 10) / 100).toLocaleString("pt-BR", {
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
     });
   }
 
   function parsePrice(formatted) {
-    // Converte "20,50" para 20.5
     return parseFloat(formatted.replace(/\./g, "").replace(",", ".")) || 0;
   }
 
   async function handleSubmitItem() {
     if (!formItem.nome || !formItem.preco) return;
     try {
+      const payload = {
+        ...formItem,
+        preco: parsePrice(formItem.precoDisplay),
+        estoque: formItem.temEstoque ? Number(formItem.estoque) || 0 : 0,
+        estoqueMin: formItem.temEstoque ? Number(formItem.estoqueMin) || 0 : 0,
+      };
       if (selectedItem) {
-        await api.put(`/food/cardapio/itens/${selectedItem.id}`, formItem);
+        await api.put(`/food/cardapio/itens/${selectedItem.id}`, payload);
       } else {
-        await api.post("/food/cardapio/itens", formItem);
+        await api.post("/food/cardapio/itens", payload);
       }
       await fetchCardapio();
       setShowModal(null);
@@ -178,6 +209,28 @@ export default function Cardapio() {
           </button>
         </div>
       </div>
+
+      {/* ← Alertas de estoque */}
+      {alertas.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {alertas.map((a, i) => (
+            <div key={i}
+              className="flex items-center justify-between px-4 py-3 rounded-xl text-sm"
+              style={{
+                background: a.tipo === "zerado" ? "#FF3D6E15" : "#F59E0B15",
+                border: `0.5px solid ${a.tipo === "zerado" ? "#FF3D6E30" : "#F59E0B30"}`,
+                color: a.tipo === "zerado" ? "#FF3D6E" : "#F59E0B",
+              }}>
+              <span>{a.tipo === "zerado" ? "⛔" : "⚠️"} {a.msg}</span>
+              <button onClick={() => setAlertas(prev => prev.filter((_, j) => j !== i))}
+                className="cursor-pointer hover:opacity-75 ml-4 shrink-0"
+                style={{ background: "none", border: "none", color: "inherit", fontSize: "16px" }}>
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {categorias.length === 0 ? (
         <div className="t-card rounded-xl p-12 text-center">
@@ -250,7 +303,7 @@ export default function Cardapio() {
                     {catAtiva.itens.map(item => (
                       <div key={item.id} className="t-card rounded-xl p-4 flex items-center gap-4">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="t-text text-sm font-medium">{item.nome}</span>
                             {!item.disponivel && (
                               <span className="text-[10px] px-2 py-0.5 rounded"
@@ -258,12 +311,26 @@ export default function Cardapio() {
                                 Indisponível
                               </span>
                             )}
+                            {/* ← Badge de estoque */}
+                            {item.temEstoque && (
+                              <span className="text-[10px] px-2 py-0.5 rounded"
+                                style={{
+                                  background: item.estoque <= 0 ? "#FF3D6E15"
+                                    : item.estoque <= item.estoqueMin ? "#F59E0B15"
+                                      : "#00F5A015",
+                                  color: item.estoque <= 0 ? "#FF3D6E"
+                                    : item.estoque <= item.estoqueMin ? "#F59E0B"
+                                      : "#00F5A0",
+                                }}>
+                                {item.estoque <= 0 ? "Sem estoque" : `${item.estoque} un.`}
+                              </span>
+                            )}
                           </div>
                           {item.descricao && (
                             <div className="t-muted text-xs mb-1">{item.descricao}</div>
                           )}
                           <div className="text-sm font-semibold" style={{ color: "var(--accent)" }}>
-                            R$ {Number(item.preco).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            R$ {Number(item.preco).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -345,7 +412,7 @@ export default function Cardapio() {
       {/* Modal Item */}
       {showModal === "item" && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="t-modal rounded-xl p-6 w-full max-w-md">
+          <div className="t-modal rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-5">
               <h2 className="t-text text-sm font-semibold">
                 {selectedItem ? "Editar Item" : "Novo Item"}
@@ -396,10 +463,7 @@ export default function Cardapio() {
                 </label>
                 <div className="flex items-center gap-2 t-input rounded-lg px-3 py-2">
                   <span className="t-muted text-sm shrink-0">R$</span>
-                  <input
-                    type="text"
-                    placeholder="0,00"
-                    value={formItem.precoDisplay}
+                  <input type="text" placeholder="0,00" value={formItem.precoDisplay}
                     onChange={e => {
                       const display = formatPrice(e.target.value);
                       const value = parsePrice(display);
@@ -409,6 +473,59 @@ export default function Cardapio() {
                   />
                 </div>
               </div>
+
+              {/* ← Toggle estoque */}
+              <div className="flex items-center justify-between t-inner rounded-lg px-3 py-3">
+                <div>
+                  <div className="t-text text-sm font-medium">Controle de estoque</div>
+                  <div className="t-muted text-xs mt-0.5">Limitar quantidade disponível</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormItem(f => ({ ...f, temEstoque: !f.temEstoque }))}
+                  className="cursor-pointer transition-all"
+                  style={{
+                    width: "44px", height: "24px", borderRadius: "12px",
+                    background: formItem.temEstoque ? "var(--accent)" : "var(--border)",
+                    position: "relative", border: "none", flexShrink: 0,
+                  }}>
+                  <div style={{
+                    width: "18px", height: "18px", borderRadius: "50%",
+                    background: "#fff", position: "absolute", top: "3px",
+                    left: formItem.temEstoque ? "23px" : "3px",
+                    transition: "left 0.2s ease",
+                  }} />
+                </button>
+              </div>
+
+              {/* ← Campos de estoque */}
+              {formItem.temEstoque && (
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="t-muted block mb-1"
+                      style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                      Quantidade atual
+                    </label>
+                    <input type="number" min={0} placeholder="0"
+                      value={formItem.estoque}
+                      onChange={e => setFormItem(f => ({ ...f, estoque: e.target.value }))}
+                      className="t-input w-full text-sm px-3 py-2 rounded-lg"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="t-muted block mb-1"
+                      style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                      Mínimo (alerta)
+                    </label>
+                    <input type="number" min={0} placeholder="0"
+                      value={formItem.estoqueMin}
+                      onChange={e => setFormItem(f => ({ ...f, estoqueMin: e.target.value }))}
+                      className="t-input w-full text-sm px-3 py-2 rounded-lg"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3 mt-2">
                 <button onClick={() => setShowModal(null)}
                   className="flex-1 t-inner t-muted text-sm py-2 rounded-lg cursor-pointer t-hover">

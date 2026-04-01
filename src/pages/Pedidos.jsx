@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "../services/api.js";
+import EnderecoForm from "../components/EnderecoForm.jsx";
+
 
 const statusConfig = {
   aberto: { label: "Aberto", bg: "#FF6B3515", color: "#FF6B35" },
   preparando: { label: "Preparando", bg: "#F59E0B15", color: "#F59E0B" },
   pronto: { label: "Pronto", bg: "#00F5A015", color: "#00F5A0" },
+  aguardando_pagamento: { label: "Aguard. pagamento", bg: "#7C6AF515", color: "#7C6AF5" },
+  cancelado: { label: "Cancelado", bg: "#FF3D6E15", color: "#FF3D6E" },
   fechado: { label: "Fechado", bg: "#5A5A7A15", color: "#5A5A7A" },
 };
 
@@ -21,7 +25,11 @@ const formaConfig = {
 
 const emptyForm = {
   mesaId: "", garcomId: "", origem: "local",
-  nomeCliente: "", telefone: "", endereco: "",
+  nomeCliente: "", telefone: "",
+  endereco: {
+    cep: "", logradouro: "", numero: "",
+    complemento: "", bairro: "", cidade: "", estado: "",
+  },
   observacao: "", frete: "", formaPagamento: "pix",
 };
 
@@ -61,6 +69,26 @@ export default function Pedidos() {
   const [formItem, setFormItem] = useState({ itemId: "", quantidade: 1, obs: "" });
   const [showFechar, setShowFechar] = useState(null);
   const [formaPag, setFormaPag] = useState("pix");
+  const [step, setStep] = useState(1);
+  const [carrinho, setCarrinho] = useState([]);
+  const [activeCat, setActiveCat] = useState(null);
+  const [search, setSearch] = useState("");
+  const [showCancelar, setShowCancelar] = useState(null);
+  const [motivoCancelamento, setMotivoCancelamento] = useState("");
+
+  async function handleCancelar() {
+    try {
+      await api.patch(`/food/pedidos/${showCancelar.id}/cancelar`, {
+        motivo: motivoCancelamento,
+      });
+      await fetchAll();
+      setShowCancelar(null);
+      setMotivoCancelamento("");
+      if (selected?.id === showCancelar.id) setSelected(null);
+    } catch (e) {
+      console.error("Erro ao cancelar pedido:", e);
+    }
+  }
 
   const fetchAll = useCallback(async () => {
     try {
@@ -84,20 +112,79 @@ export default function Pedidos() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  function formatarEndereco(e) {
+    const parts = [
+      e.logradouro,
+      e.numero ? `nº ${e.numero}` : "",
+      e.complemento,
+      e.bairro,
+      e.cidade,
+      e.estado,
+      e.cep,
+    ].filter(Boolean);
+    return parts.join(", ");
+  }
+
   async function handleNovoPedido() {
+    if (step === 1) { setStep(2); return; }
+    if (step === 2) {
+      if (carrinho.length === 0) return;
+      setStep(3);
+      return;
+    }
+
+    // Step 3 — envia
     try {
-      await api.post("/food/pedidos", {
+      const { data: pedido } = await api.post("/food/pedidos", {
         ...form,
+        endereco: formatarEndereco(form.endereco),
         frete: parsePrice(freteDisplay),
       });
+
+      for (const item of carrinho) {
+        await api.post(`/food/pedidos/${pedido.id}/itens`, {
+          itemId: item.id,
+          quantidade: item.quantidade,
+          obs: item.obs || "",
+        });
+      }
+
       await fetchAll();
       setShowNew(false);
       setForm(emptyForm);
       setFreteDisplay("");
+      setCarrinho([]);
+      setStep(1);
     } catch (e) {
       console.error("Erro ao criar pedido:", e);
     }
   }
+
+  function addItem(item) {
+    setCarrinho(prev => {
+      const exists = prev.find(i => i.id === item.id);
+      if (exists) return prev.map(i => i.id === item.id ? { ...i, quantidade: i.quantidade + 1 } : i);
+      return [...prev, { ...item, quantidade: 1 }];
+    });
+  }
+
+  function removeItem(itemId) {
+    setCarrinho(prev => {
+      const exists = prev.find(i => i.id === itemId);
+      if (exists?.quantidade > 1) return prev.map(i => i.id === itemId ? { ...i, quantidade: i.quantidade - 1 } : i);
+      return prev.filter(i => i.id !== itemId);
+    });
+  }
+
+  function getQtd(itemId) {
+    return carrinho.find(i => i.id === itemId)?.quantidade || 0;
+  }
+
+  const totalCarrinho = carrinho.reduce((s, i) => s + i.preco * i.quantidade, 0);
+  const catAtiva = cardapio.find(c => c.id === activeCat);
+  const itensFiltrados = catAtiva?.itens.filter(i =>
+    i.disponivel && i.nome.toLowerCase().includes(search.toLowerCase())
+  ) || [];
 
   async function handleAddItem() {
     if (!formItem.itemId) return;
@@ -173,7 +260,14 @@ export default function Pedidos() {
             {pedidos.filter(p => p.status !== "fechado").length} pedidos ativos
           </p>
         </div>
-        <button onClick={() => { setForm(emptyForm); setFreteDisplay(""); setShowNew(true); }}
+        <button onClick={() => {
+          setForm(emptyForm);
+          setFreteDisplay("");
+          setCarrinho([]);
+          setStep(1);
+          if (cardapio.length > 0) setActiveCat(cardapio[0].id);
+          setShowNew(true);
+        }}
           className="t-btn-primary text-sm px-4 py-2 rounded-lg cursor-pointer">
           + Novo Pedido
         </button>
@@ -189,6 +283,7 @@ export default function Pedidos() {
             { value: "pronto", label: "Pronto" },
             { value: "aguardando_pagamento", label: "💰 Aguard. pagamento" },
             { value: "fechado", label: "Fechado" },
+            { value: "cancelado", label: "Cancelados" },
           ].map(f => (
             <button key={f.value} onClick={() => setFilter(f.value)}
               className="text-xs px-3 py-1.5 rounded-lg border transition-all cursor-pointer"
@@ -275,35 +370,55 @@ export default function Pedidos() {
                     {p.frete > 0 && <span className="ml-2">· Frete R$ {Number(p.frete).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>}
                   </div>
 
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-2 flex-wrap mt-3 pt-3" style={{ borderTop: "0.5px solid var(--border-soft)" }}>
                     {p.status === "aberto" && (
                       <button onClick={e => { e.stopPropagation(); handleStatus(p.id, "preparando"); }}
-                        className="text-[10px] px-2 py-1 rounded cursor-pointer"
-                        style={{ background: "#F59E0B15", color: "#F59E0B" }}>
+                        className="text-xs px-3 py-1.5 rounded-lg cursor-pointer font-medium transition-all"
+                        style={{
+                          background: "#F59E0B",
+                          color: "#fff",
+                          border: "none",
+                        }}>
                         Preparando
                       </button>
                     )}
                     {p.status === "preparando" && (
                       <button onClick={e => { e.stopPropagation(); handleStatus(p.id, "pronto"); }}
-                        className="text-[10px] px-2 py-1 rounded cursor-pointer"
-                        style={{ background: "#00F5A015", color: "#00F5A0" }}>
-                        Pronto
+                        className="text-xs px-3 py-1.5 rounded-lg cursor-pointer font-medium transition-all"
+                        style={{
+                          background: "#00F5A0",
+                          color: "#080810",
+                          border: "none",
+                        }}>
+                        ✓ Pronto
                       </button>
                     )}
-                    {/* Gerente pode fechar diretamente em qualquer status ativo */}
-                    {!["fechado", "aguardando_pagamento"].includes(p.status) && (
+                    {!["fechado", "aguardando_pagamento", "cancelado"].includes(p.status) && (
                       <button onClick={e => { e.stopPropagation(); setShowFechar(p); }}
-                        className="text-[10px] px-2 py-1 rounded cursor-pointer"
-                        style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                        className="text-xs px-3 py-1.5 rounded-lg cursor-pointer font-medium transition-all"
+                        style={{
+                          background: "var(--accent)",
+                          color: "#fff",
+                          border: "none",
+                        }}>
                         Fechar conta
                       </button>
                     )}
-
-                    {/* Garçom já fechou — só registrar pagamento */}
+                    {!["fechado", "cancelado", "aguardando_pagamento"].includes(p.status) && (
+                      <button onClick={e => { e.stopPropagation(); setShowCancelar(p); }}
+                        className="text-xs px-3 py-1.5 rounded-lg cursor-pointer font-medium"
+                        style={{ background: "#FF3D6E", color: "#fff", border: "none" }}>
+                        Cancelar
+                      </button>
+                    )}
                     {p.status === "aguardando_pagamento" && (
                       <button onClick={e => { e.stopPropagation(); setShowFechar(p); }}
-                        className="text-[10px] px-2 py-1 rounded cursor-pointer font-semibold"
-                        style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                        className="text-xs px-3 py-1.5 rounded-lg cursor-pointer font-medium transition-all"
+                        style={{
+                          background: "var(--accent)",
+                          color: "#fff",
+                          border: "none",
+                        }}>
                         💰 Registrar pagamento
                       </button>
                     )}
@@ -428,179 +543,420 @@ export default function Pedidos() {
         )}
       </div>
 
+      {/* Modal — Cancelar Pedido */}
+      {showCancelar && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="t-modal rounded-xl p-6 w-full max-w-sm">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="t-text text-sm font-semibold">Cancelar Pedido</h2>
+              <button onClick={() => setShowCancelar(null)}
+                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="t-inner rounded-lg p-4 text-center">
+                <div className="text-2xl mb-2">🚫</div>
+                <div className="t-text text-sm font-semibold">Pedido #{showCancelar.id}</div>
+                <div className="t-muted text-xs mt-1">
+                  {showCancelar.mesa ? `Mesa ${showCancelar.mesa.numero}` : showCancelar.nomeCliente || "Balcão"}
+                </div>
+                <div className="text-sm font-bold mt-2" style={{ color: "#FF3D6E" }}>
+                  R$ {Number(showCancelar.total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div>
+                <label className="t-muted block mb-1"
+                  style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                  Motivo (opcional)
+                </label>
+                <input type="text" placeholder="Ex: cliente desistiu, erro no pedido..."
+                  value={motivoCancelamento}
+                  onChange={e => setMotivoCancelamento(e.target.value)}
+                  className="t-input w-full text-sm px-3 py-2 rounded-lg"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setShowCancelar(null)}
+                  className="flex-1 t-inner t-muted text-sm py-2 rounded-lg cursor-pointer t-hover">
+                  Voltar
+                </button>
+                <button onClick={handleCancelar}
+                  className="flex-1 text-sm py-2 rounded-lg cursor-pointer font-semibold"
+                  style={{ background: "#FF3D6E", color: "#fff", border: "none" }}>
+                  Confirmar cancelamento
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal — Novo Pedido */}
       {showNew && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="t-modal rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="t-text text-sm font-semibold">Novo Pedido</h2>
-              <button onClick={() => setShowNew(false)}
-                className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
-            </div>
-            <div className="flex flex-col gap-3">
+          <div className="t-modal rounded-xl w-full max-w-lg flex flex-col"
+            style={{ maxHeight: "90vh" }}>
 
-              {/* Tipo do pedido */}
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4"
+              style={{ borderBottom: "0.5px solid var(--border)" }}>
               <div>
-                <label className="t-muted block mb-2"
-                  style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                  Tipo
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: "local", label: "🪑 Local", desc: "Mesa ou balcão" },
-                    { value: "delivery", label: "🛵 Delivery", desc: "Entrega em domicílio" },
-                  ].map(t => (
-                    <button key={t.value} onClick={() => setForm(f => ({ ...f, origem: t.value }))}
-                      className="py-3 px-3 rounded-lg text-left border transition-all cursor-pointer"
-                      style={{
-                        background: form.origem === t.value ? "var(--accent-bg)" : "var(--bg-tertiary)",
-                        borderColor: form.origem === t.value ? "var(--accent-border)" : "var(--border)",
-                      }}>
-                      <div className="text-sm font-semibold" style={{ color: form.origem === t.value ? "var(--accent)" : "var(--text-primary)" }}>
-                        {t.label}
-                      </div>
-                      <div className="t-muted text-xs mt-0.5">{t.desc}</div>
-                    </button>
-                  ))}
+                <h2 className="t-text text-sm font-semibold">Novo Pedido</h2>
+                <div className="t-muted text-xs mt-0.5"
+                  style={{ fontFamily: "'Space Mono', monospace" }}>
+                  Passo {step} de 3
                 </div>
               </div>
+              <div className="flex items-center gap-3">
+                {carrinho.length > 0 && (
+                  <div className="text-xs px-2 py-1 rounded-lg font-semibold"
+                    style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                    {carrinho.reduce((s, i) => s + i.quantidade, 0)} itens
+                  </div>
+                )}
+                <button onClick={() => { setShowNew(false); setStep(1); setCarrinho([]); }}
+                  className="t-muted hover:opacity-75 cursor-pointer text-lg">✕</button>
+              </div>
+            </div>
 
-              {/* Local */}
-              {form.origem === "local" && (
-                <>
-                  <div>
-                    <label className="t-muted block mb-1"
-                      style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                      Mesa
-                    </label>
-                    <select value={form.mesaId}
-                      onChange={e => setForm(f => ({ ...f, mesaId: e.target.value }))}
-                      className="t-select w-full text-sm px-3 py-2 rounded-lg cursor-pointer">
-                      <option value="">Sem mesa (balcão)</option>
-                      {mesas.filter(m => m.status !== "ocupada").map(m => (
-                        <option key={m.id} value={m.id}>Mesa {m.numero}</option>
-                      ))}
-                    </select>
+            {/* Progress */}
+            <div className="flex gap-1 px-6 py-3"
+              style={{ borderBottom: "0.5px solid var(--border)" }}>
+              {["Informações", "Cardápio", "Confirmar"].map((s, i) => (
+                <div key={i} style={{ flex: 1, textAlign: "center" }}>
+                  <div style={{
+                    height: "3px", borderRadius: "2px", marginBottom: "4px",
+                    background: step > i ? "var(--accent)" : "var(--border)",
+                    transition: "background 0.3s",
+                  }} />
+                  <div className="t-faint text-[9px] uppercase tracking-wider"
+                    style={{ fontFamily: "'Space Mono', monospace", color: step > i ? "var(--accent)" : "var(--text-faint)" }}>
+                    {s}
                   </div>
-                </>
-              )}
+                </div>
+              ))}
+            </div>
 
-              {/* Delivery */}
-              {form.origem === "delivery" && (
-                <>
-                  <div>
-                    <label className="t-muted block mb-1"
-                      style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                      Nome do cliente *
-                    </label>
-                    <input type="text" placeholder="Nome completo" value={form.nomeCliente}
-                      onChange={e => setForm(f => ({ ...f, nomeCliente: e.target.value }))}
-                      className="t-input w-full text-sm px-3 py-2 rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="t-muted block mb-1"
-                      style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                      Telefone
-                    </label>
-                    <input type="text" placeholder="(11) 99999-9999" value={form.telefone}
-                      onChange={e => setForm(f => ({ ...f, telefone: formatPhone(e.target.value) }))}
-                      className="t-input w-full text-sm px-3 py-2 rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="t-muted block mb-1"
-                      style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                      Endereço completo
-                    </label>
-                    <textarea placeholder="Rua, número, bairro, complemento..." value={form.endereco}
-                      onChange={e => setForm(f => ({ ...f, endereco: e.target.value }))}
-                      rows={2} className="t-input w-full text-sm px-3 py-2 rounded-lg resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="t-muted block mb-1"
-                      style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                      Frete (R$)
-                    </label>
-                    <div className="flex items-center gap-2 t-input rounded-lg px-3 py-2">
-                      <span className="t-muted text-sm shrink-0">R$</span>
-                      <input type="text" placeholder="0,00" value={freteDisplay}
-                        onChange={e => setFreteDisplay(formatPrice(e.target.value))}
-                        style={{ background: "transparent", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "14px", width: "100%" }}
-                      />
-                    </div>
-                  </div>
+            {/* Conteúdo */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+
+              {/* Step 1 — Informações */}
+              {step === 1 && (
+                <div className="flex flex-col gap-3">
+
+                  {/* Tipo */}
                   <div>
                     <label className="t-muted block mb-2"
                       style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                      Forma de pagamento
+                      Tipo
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { value: "pix", label: "PIX", color: "#00F5A0" },
-                        { value: "dinheiro", label: "Dinheiro", color: "#F59E0B" },
-                        { value: "credito", label: "Cartão Crédito", color: "#B8A8FF" },
-                        { value: "debito", label: "Cartão Débito", color: "#7C6AF5" },
-                        { value: "vr", label: "VR", color: "#FF6B35" },
-                        { value: "va", label: "VA", color: "#00D9F5" },
-                        { value: "ticket", label: "Ticket", color: "#F472B6" },
-                        { value: "transferencia", label: "Transferência", color: "#4ade80" },
-                      ].map(f => (
-                        <button key={f.value}
-                          onClick={() => setForm(p => ({ ...p, formaPagamento: f.value }))}
-                          className="py-2.5 px-3 rounded-lg text-sm font-medium border transition-all cursor-pointer text-left"
+                        { value: "local", label: "🪑 Local", desc: "Mesa ou balcão" },
+                        { value: "delivery", label: "🛵 Delivery", desc: "Entrega em domicílio" },
+                      ].map(t => (
+                        <button key={t.value} onClick={() => setForm(f => ({ ...f, origem: t.value }))}
+                          className="py-3 px-3 rounded-lg text-left border transition-all cursor-pointer"
                           style={{
-                            background: form.formaPagamento === f.value ? f.color + "20" : "var(--bg-tertiary)",
-                            color: form.formaPagamento === f.value ? f.color : "var(--text-muted)",
-                            borderColor: form.formaPagamento === f.value ? f.color + "50" : "var(--border)",
+                            background: form.origem === t.value ? "var(--accent-bg)" : "var(--bg-tertiary)",
+                            borderColor: form.origem === t.value ? "var(--accent-border)" : "var(--border)",
                           }}>
-                          {f.label}
+                          <div className="text-sm font-semibold"
+                            style={{ color: form.origem === t.value ? "var(--accent)" : "var(--text-primary)" }}>
+                            {t.label}
+                          </div>
+                          <div className="t-muted text-xs mt-0.5">{t.desc}</div>
                         </button>
                       ))}
                     </div>
                   </div>
-                </>
+
+                  {/* Local */}
+                  {form.origem === "local" && (
+                    <div>
+                      <label className="t-muted block mb-1"
+                        style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                        Mesa
+                      </label>
+                      <select value={form.mesaId}
+                        onChange={e => setForm(f => ({ ...f, mesaId: e.target.value }))}
+                        className="t-select w-full text-sm px-3 py-2 rounded-lg cursor-pointer">
+                        <option value="">Sem mesa (balcão)</option>
+                        {mesas.filter(m => m.status !== "ocupada").map(m => (
+                          <option key={m.id} value={m.id}>Mesa {m.numero}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Delivery */}
+                  {form.origem === "delivery" && (
+                    <>
+                      <div>
+                        <label className="t-muted block mb-1"
+                          style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                          Nome do cliente *
+                        </label>
+                        <input type="text" placeholder="Nome completo" value={form.nomeCliente}
+                          onChange={e => setForm(f => ({ ...f, nomeCliente: e.target.value }))}
+                          className="t-input w-full text-sm px-3 py-2 rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="t-muted block mb-1"
+                          style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                          Telefone
+                        </label>
+                        <input type="text" placeholder="(11) 99999-9999" value={form.telefone}
+                          onChange={e => setForm(f => ({ ...f, telefone: formatPhone(e.target.value) }))}
+                          className="t-input w-full text-sm px-3 py-2 rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="t-muted block mb-2"
+                          style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                          Endereço de entrega
+                        </label>
+                        <EnderecoForm
+                          value={form.endereco}
+                          onChange={endereco => setForm(f => ({ ...f, endereco }))}
+                          inputClass="t-input w-full text-sm px-3 py-2 rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="t-muted block mb-1"
+                          style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                          Frete (R$)
+                        </label>
+                        <div className="flex items-center gap-2 t-input rounded-lg px-3 py-2">
+                          <span className="t-muted text-sm shrink-0">R$</span>
+                          <input type="text" placeholder="0,00" value={freteDisplay}
+                            onChange={e => setFreteDisplay(formatPrice(e.target.value))}
+                            style={{ background: "transparent", border: "none", outline: "none", color: "var(--text-primary)", fontSize: "14px", width: "100%" }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="t-muted block mb-2"
+                          style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                          Forma de pagamento
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { value: "pix", label: "PIX", color: "#00F5A0" },
+                            { value: "dinheiro", label: "Dinheiro", color: "#F59E0B" },
+                            { value: "credito", label: "Cartão Crédito", color: "#B8A8FF" },
+                            { value: "debito", label: "Cartão Débito", color: "#7C6AF5" },
+                            { value: "vr", label: "VR", color: "#FF6B35" },
+                            { value: "va", label: "VA", color: "#00D9F5" },
+                            { value: "ticket", label: "Ticket", color: "#F472B6" },
+                            { value: "transferencia", label: "Transferência", color: "#4ade80" },
+                          ].map(f => (
+                            <button key={f.value}
+                              onClick={() => setForm(p => ({ ...p, formaPagamento: f.value }))}
+                              className="py-2 px-3 rounded-lg text-sm font-medium border transition-all cursor-pointer text-left"
+                              style={{
+                                background: form.formaPagamento === f.value ? f.color + "20" : "var(--bg-tertiary)",
+                                color: form.formaPagamento === f.value ? f.color : "var(--text-muted)",
+                                borderColor: form.formaPagamento === f.value ? f.color + "50" : "var(--border)",
+                              }}>
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Garçom */}
+                  <div>
+                    <label className="t-muted block mb-1"
+                      style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                      Garçom (opcional)
+                    </label>
+                    <select value={form.garcomId}
+                      onChange={e => setForm(f => ({ ...f, garcomId: e.target.value }))}
+                      className="t-select w-full text-sm px-3 py-2 rounded-lg cursor-pointer">
+                      <option value="">Sem garçom</option>
+                      {garcons.filter(g => g.status === "active").map(g => (
+                        <option key={g.id} value={g.id}>{g.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Observação */}
+                  <div>
+                    <label className="t-muted block mb-1"
+                      style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                      Observação
+                    </label>
+                    <input type="text" placeholder="Ex: cliente alérgico..." value={form.observacao}
+                      onChange={e => setForm(f => ({ ...f, observacao: e.target.value }))}
+                      className="t-input w-full text-sm px-3 py-2 rounded-lg"
+                    />
+                  </div>
+                </div>
               )}
 
-              {/* Garçom — ambos */}
-              <div>
-                <label className="t-muted block mb-1"
-                  style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                  Garçom (opcional)
-                </label>
-                <select value={form.garcomId}
-                  onChange={e => setForm(f => ({ ...f, garcomId: e.target.value }))}
-                  className="t-select w-full text-sm px-3 py-2 rounded-lg cursor-pointer">
-                  <option value="">Sem garçom</option>
-                  {garcons.filter(g => g.status === "active").map(g => (
-                    <option key={g.id} value={g.id}>{g.nome}</option>
-                  ))}
-                </select>
-              </div>
+              {/* Step 2 — Cardápio */}
+              {step === 2 && (
+                <div>
+                  <input className="t-input w-full text-sm px-3 py-2 rounded-lg mb-3"
+                    placeholder="Buscar item..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
 
-              {/* Observação */}
-              <div>
-                <label className="t-muted block mb-1"
-                  style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                  Observação
-                </label>
-                <input type="text" placeholder="Ex: sem cebola, alergia..." value={form.observacao}
-                  onChange={e => setForm(f => ({ ...f, observacao: e.target.value }))}
-                  className="t-input w-full text-sm px-3 py-2 rounded-lg"
-                />
-              </div>
+                  {/* Categorias */}
+                  <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+                    {cardapio.map(cat => (
+                      <button key={cat.id}
+                        onClick={() => { setActiveCat(cat.id); setSearch(""); }}
+                        className="text-xs px-3 py-1.5 rounded-lg border transition-all cursor-pointer shrink-0"
+                        style={{
+                          background: activeCat === cat.id ? "var(--accent-bg)" : "transparent",
+                          color: activeCat === cat.id ? "var(--accent)" : "var(--text-muted)",
+                          borderColor: activeCat === cat.id ? "var(--accent-border)" : "var(--border)",
+                        }}>
+                        {cat.nome}
+                      </button>
+                    ))}
+                  </div>
 
-              <div className="flex gap-3 mt-2">
-                <button onClick={() => setShowNew(false)}
-                  className="flex-1 t-inner t-muted text-sm py-2 rounded-lg cursor-pointer t-hover">
-                  Cancelar
-                </button>
-                <button onClick={handleNovoPedido}
-                  className="flex-1 t-btn-primary text-sm py-2 rounded-lg cursor-pointer">
-                  Abrir pedido
-                </button>
-              </div>
+                  {/* Itens */}
+                  <div className="flex flex-col gap-2">
+                    {itensFiltrados.length === 0 ? (
+                      <div className="t-inner rounded-lg p-8 text-center">
+                        <div className="t-muted text-sm">Nenhum item encontrado</div>
+                      </div>
+                    ) : (
+                      itensFiltrados.map(item => {
+                        const qtd = getQtd(item.id);
+                        return (
+                          <div key={item.id} className="t-inner rounded-lg p-3 flex items-center gap-3">
+                            <div style={{ flex: 1 }}>
+                              <div className="t-text text-sm font-medium">{item.nome}</div>
+                              {item.descricao && (
+                                <div className="t-muted text-xs">{item.descricao}</div>
+                              )}
+                              <div className="text-sm font-semibold mt-1" style={{ color: "var(--accent)" }}>
+                                R$ {Number(item.preco).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {qtd > 0 && (
+                                <>
+                                  <button onClick={() => removeItem(item.id)}
+                                    className="w-8 h-8 rounded-lg cursor-pointer flex items-center justify-center text-lg font-bold"
+                                    style={{ background: "var(--bg-card)", border: "0.5px solid var(--border)", color: "var(--text-primary)" }}>
+                                    −
+                                  </button>
+                                  <span className="text-sm font-bold w-5 text-center"
+                                    style={{ color: "var(--accent)" }}>
+                                    {qtd}
+                                  </span>
+                                </>
+                              )}
+                              <button onClick={() => addItem(item)}
+                                className="w-8 h-8 rounded-lg cursor-pointer flex items-center justify-center text-lg font-bold"
+                                style={{ background: "var(--accent)", border: "none", color: "#fff" }}>
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3 — Confirmar */}
+              {step === 3 && (
+                <div className="flex flex-col gap-3">
+
+                  {/* Info */}
+                  <div className="t-inner rounded-lg p-4">
+                    <div className="flex justify-between mb-2">
+                      <span className="t-muted text-sm">Tipo</span>
+                      <span className="t-text text-sm font-semibold">
+                        {form.origem === "local" ? "🪑 Local" : "🛵 Delivery"}
+                      </span>
+                    </div>
+                    {form.origem === "local" && (
+                      <div className="flex justify-between">
+                        <span className="t-muted text-sm">Mesa</span>
+                        <span className="t-text text-sm font-semibold">
+                          {mesas.find(m => m.id === Number(form.mesaId))
+                            ? `Mesa ${mesas.find(m => m.id === Number(form.mesaId)).numero}`
+                            : "Balcão"}
+                        </span>
+                      </div>
+                    )}
+                    {form.origem === "delivery" && form.nomeCliente && (
+                      <div className="flex justify-between">
+                        <span className="t-muted text-sm">Cliente</span>
+                        <span className="t-text text-sm font-semibold">{form.nomeCliente}</span>
+                      </div>
+                    )}
+                    {form.garcomId && (
+                      <div className="flex justify-between mt-2">
+                        <span className="t-muted text-sm">Garçom</span>
+                        <span className="t-text text-sm font-semibold">
+                          {garcons.find(g => g.id === Number(form.garcomId))?.nome}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Itens */}
+                  <div className="t-inner rounded-lg p-4">
+                    <div className="t-faint text-[10px] uppercase tracking-wider mb-3"
+                      style={{ fontFamily: "'Space Mono', monospace" }}>
+                      Itens do pedido
+                    </div>
+                    {carrinho.map(item => (
+                      <div key={item.id} className="flex justify-between items-center mb-3">
+                        <div>
+                          <div className="t-text text-sm font-medium">{item.nome}</div>
+                          <div className="t-muted text-xs">
+                            {item.quantidade}x · R$ {Number(item.preco).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                        <div className="text-sm font-semibold" style={{ color: "var(--accent)" }}>
+                          R$ {(item.quantidade * item.preco).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-between pt-3" style={{ borderTop: "0.5px solid var(--border)" }}>
+                      <span className="t-text text-sm font-semibold">Total</span>
+                      <span className="text-base font-bold" style={{ color: "var(--accent)" }}>
+                        R$ {(totalCarrinho + parsePrice(freteDisplay)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 flex gap-3" style={{ borderTop: "0.5px solid var(--border)" }}>
+              <button
+                onClick={() => step > 1 ? setStep(step - 1) : setShowNew(false)}
+                className="flex-1 t-inner t-muted text-sm py-2.5 rounded-lg cursor-pointer t-hover">
+                {step === 1 ? "Cancelar" : "Voltar"}
+              </button>
+              <button
+                onClick={handleNovoPedido}
+                disabled={step === 2 && carrinho.length === 0}
+                className="flex-2 t-btn-primary text-sm py-2.5 rounded-lg cursor-pointer"
+                style={{
+                  flex: 2,
+                  opacity: step === 2 && carrinho.length === 0 ? 0.5 : 1,
+                }}>
+                {step === 1 ? "Próximo — Cardápio" :
+                  step === 2 ? `Revisar · R$ ${totalCarrinho.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` :
+                    "Abrir pedido 🚀"}
+              </button>
             </div>
           </div>
         </div>

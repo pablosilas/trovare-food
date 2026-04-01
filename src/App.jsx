@@ -8,6 +8,8 @@ import Cardapio from "./pages/Cardapio.jsx";
 import Pedidos from "./pages/Pedidos.jsx";
 import Garcons from "./pages/Garcons.jsx";
 import Caixa from "./pages/Caixa.jsx";
+import Configuracoes from "./pages/Configuracoes.jsx";
+import Relatorios from "./pages/Relatorios.jsx";
 
 export default function App() {
   return (
@@ -25,6 +27,8 @@ export default function App() {
           <Route path="pedidos" element={<Pedidos />} />
           <Route path="garcons" element={<Garcons />} />
           <Route path="caixa" element={<Caixa />} />
+          <Route path="relatorios" element={<Relatorios />} />
+          <Route path="configuracoes" element={<Configuracoes />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

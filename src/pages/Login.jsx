@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import TrovareIcon from "../components/TrovareIcon.jsx";
+import PasswordInput from "../components/PasswordInput.jsx";
 
 export default function Login() {
   const { login } = useAuth();
@@ -69,9 +70,11 @@ export default function Login() {
                 style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase" }}>
                 Senha
               </label>
-              <input type="password" placeholder="••••••••" value={form.password}
+              <PasswordInput
+                value={form.password}
                 onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                className="t-input w-full text-sm px-4 py-3 rounded-xl" required />
+                className="t-input w-full text-sm px-3 py-2 rounded-xl"
+              />
             </div>
 
             {error && (

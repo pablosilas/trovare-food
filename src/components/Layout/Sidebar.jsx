@@ -2,13 +2,27 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import TrovareIcon from "../TrovareIcon.jsx";
 
+import {
+  LayoutDashboard,
+  UtensilsCrossed,
+  BarChart2,
+  TableProperties,
+  BookOpen,
+  ClipboardList,
+  Users,
+  Wallet,
+  Settings,
+} from "lucide-react";
+
 const navItems = [
-  { path: "/", label: "Dashboard", icon: "◈" },
-  { path: "/mesas", label: "Mesas", icon: "◎" },
-  { path: "/cardapio", label: "Cardápio", icon: "◷" },
-  { path: "/pedidos", label: "Pedidos", icon: "◆" },
-  { path: "/garcons", label: "Garçons", icon: "✦" },
-  { path: "/caixa", label: "Caixa", icon: "◈" },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/relatorios", label: "Relatórios", icon: BarChart2 },
+  { path: "/mesas", label: "Mesas", icon: TableProperties },
+  { path: "/cardapio", label: "Cardápio", icon: BookOpen },
+  { path: "/pedidos", label: "Pedidos", icon: ClipboardList },
+  { path: "/garcons", label: "Garçons", icon: Users },
+  { path: "/caixa", label: "Caixa", icon: Wallet },
+  { path: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
 export default function Sidebar({ open, onClose }) {
@@ -62,31 +76,33 @@ export default function Sidebar({ open, onClose }) {
 
       {/* Nav */}
       <nav className="flex-1 p-3 flex flex-col gap-1 overflow-y-auto">
-        {navItems.map(item => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === "/"}
-            onClick={onClose}
-            style={({ isActive }) => ({
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "10px 12px",
-              borderRadius: "8px",
-              fontSize: "13px",
-              fontWeight: isActive ? 600 : 400,
-              textDecoration: "none",
-              transition: "all 0.15s ease",
-              background: isActive ? "var(--accent-bg)" : "transparent",
-              color: isActive ? "var(--accent)" : "var(--text-muted)",
-              borderLeft: isActive ? "2px solid var(--accent)" : "2px solid transparent",
-            })}
-          >
-            <span style={{ fontSize: "14px" }}>{item.icon}</span>
-            {item.label}
-          </NavLink>
-        ))}
+        {navItems.map(item => {
+          const Icon = item.icon;
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === "/"}
+              onClick={onClose}
+              style={({ isActive }) => ({
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: isActive ? 600 : 400,
+                textDecoration: "none",
+                transition: "all 0.15s ease",
+                background: isActive ? "var(--accent-bg)" : "transparent",
+                color: isActive ? "var(--accent)" : "var(--text-muted)",
+                borderLeft: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+              })}>
+              <Icon size={15} />
+              {item.label}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* User + Logout */}
